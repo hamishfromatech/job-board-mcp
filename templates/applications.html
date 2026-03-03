@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Applications - {{ app_name }}{% endblock %}
+{% block header_title %}Applications{% endblock %}
+{% block header_subtitle %}Manage job applications{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="glass rounded-2xl p-6 mb-6">
+    <form method="get" action="/applications">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <select name="status" class="form-control px-4 py-3 rounded-xl w-full">
+                    <option value="">All Statuses</option>
+                    <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="reviewing" {% if status == 'reviewing' %}selected{% endif %}>Reviewing</option>
+                    <option value="interviewing" {% if status == 'interviewing' %}selected{% endif %}>Interviewing</option>
+                    <option value="offered" {% if status == 'offered' %}selected{% endif %}>Offered</option>
+                    <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2">
+                <i class="fas fa-filter text-xs"></i>
+                <span>Filter</span>
+            </button>
+            <a href="/applications" class="btn-secondary px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white">
+                <i class="fas fa-times mr-1"></i> Clear
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Applications List -->
+<div class="glass rounded-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <i class="fas fa-file-alt text-green-400 text-xs"></i>
+            </div>
+            <h2 class="text-white font-semibold">All Applications</h2>
+        </div>
+        <span class="badge bg-white/5 text-gray-400 px-3 py-1 rounded-full text-xs font-mono">{{ applications|length }} applications</span>
+    </div>
+    <div class="p-0">
+        {% if applications %}
+        <div class="overflow-x-auto">
+            <table class="data-table w-full">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-4 text-left">Applicant</th>
+                        <th class="px-6 py-4 text-left">Email</th>
+                        <th class="px-6 py-4 text-left">Job Title</th>
+                        <th class="px-6 py-4 text-left">Company</th>
+                        <th class="px-6 py-4 text-left">Date</th>
+                        <th class="px-6 py-4 text-left">Status</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                    <tr class="group hover:bg-white/[0.02]">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-accent-cyan to-accent-coral flex items-center justify-center text-white text-xs font-semibold">
+                                    {{ app.applicant_name[0]|upper }}
+                                </div>
+                                <span class="text-white font-medium">{{ app.applicant_name }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <a href="mailto:{{ app.applicant_email }}" class="text-gray-400 hover:text-accent-cyan transition-colors">
+                                {{ app.applicant_email }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 text-gray-400">{{ app.job.title if app.job else 'N/A' }}</td>
+                        <td class="px-6 py-4 text-gray-400">{{ app.job.company if app.job else 'N/A' }}</td>
+                        <td class="px-6 py-4 text-gray-400 font-mono text-xs">{{ app.applied_date.strftime('%b %d, %Y') if app.applied_date else 'N/A' }}</td>
+                        <td class="px-6 py-4">
+                            <span class="badge px-3 py-1.5 rounded-full text-xs font-medium
+                                {% if app.status == 'pending' %}bg-yellow-500/20 text-yellow-400 border border-yellow-500/20
+                                {% elif app.status == 'reviewing' %}bg-blue-500/20 text-blue-400 border border-blue-500/20
+                                {% elif app.status == 'interviewing' %}bg-purple-500/20 text-purple-400 border border-purple-500/20
+                                {% elif app.status == 'offered' %}bg-green-500/20 text-green-400 border border-green-500/20
+                                {% else %}bg-red-500/20 text-red-400 border border-red-500/20{% endif %}">
+                                {{ app.status|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="/applications/{{ app.id }}" class="btn-secondary px-4 py-2 rounded-lg text-sm text-gray-300 hover:text-white inline-flex items-center gap-2">
+                                <i class="fas fa-eye text-xs"></i>
+                                <span>View</span>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-16 text-center">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white/5 flex items-center justify-center">
+                <i class="fas fa-inbox text-gray-600 text-3xl"></i>
+            </div>
+            <h3 class="text-white font-semibold text-lg mb-2">No applications found</h3>
+            <p class="text-gray-500">Applications will appear here when candidates apply to your job listings.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

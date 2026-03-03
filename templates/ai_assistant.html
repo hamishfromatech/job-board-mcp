@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+
+{% block title %}AI Assistant - {{ app_name }}{% endblock %}
+{% block header_title %}AI Assistant{% endblock %}
+{% block header_subtitle %}Chat with AI to manage your job board{% endblock %}
+
+{% block header_actions %}
+<button onclick="clearConversation()" class="btn-secondary px-4 py-2 rounded-lg text-gray-300 text-sm font-medium flex items-center gap-2 hover:text-white transition-colors">
+    <i class="fas fa-trash-alt text-xs"></i>
+    <span>Clear Chat</span>
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- AI Status Card -->
+<div class="glass rounded-2xl p-6 mb-6">
+    <div class="flex items-center gap-5">
+        <div id="status-indicator" class="w-14 h-14 rounded-2xl flex items-center justify-center {% if ai_status.status == 'ok' %}bg-accent-cyan/10 border border-accent-cyan/30{% else %}bg-red-500/10 border border-red-500/30{% endif %}">
+            <i class="fas {% if ai_status.status == 'ok' %}fa-robot text-accent-cyan text-xl{% else %}fa-exclamation-triangle text-red-400 text-xl{% endif %}"></i>
+        </div>
+        <div class="flex-1">
+            <h3 class="text-white font-semibold text-lg mb-1">Ollama AI Assistant</h3>
+            <p id="status-text" class="text-gray-400 text-sm">
+                {% if ai_status.status == 'ok' %}
+                    Connected to Ollama at <span class="font-mono text-accent-cyan">{{ ollama_host }}</span>
+                {% else %}
+                    <span class="text-red-400">Ollama not available</span>. Make sure it's running at <span class="font-mono">{{ ollama_host }}</span>
+                {% endif %}
+            </p>
+            <p class="text-gray-500 text-xs mt-1 font-mono">Model: {{ ai_status.using_model }}</p>
+        </div>
+        <div class="hidden md:block">
+            <span class="inline-flex items-center gap-2 text-xs font-mono {% if ai_status.status == 'ok' %}text-green-400 bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20{% else %}text-red-400 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20{% endif %}">
+                <span class="w-1.5 h-1.5 rounded-full {% if ai_status.status == 'ok' %}bg-green-400 animate-pulse{% else %}bg-red-400{% endif %}"></span>
+                {{ 'Online' if ai_status.status == 'ok' else 'Offline' }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Interface -->
+<div class="glass rounded-2xl overflow-hidden flex flex-col" style="height: 550px;">
+    <!-- Chat Header -->
+    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan to-accent-coral flex items-center justify-center">
+                <i class="fas fa-comments text-white text-sm"></i>
+            </div>
+            <div>
+                <h2 class="text-white font-semibold">Chat</h2>
+                <p class="text-gray-500 text-xs">Powered by {{ ai_status.using_model }}</p>
+            </div>
+        </div>
+        <span class="badge bg-white/5 text-gray-400 px-3 py-1 rounded-full text-xs font-mono">{{ ai_status.using_model }}</span>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 chat-container">
+        <!-- Welcome Message -->
+        <div class="message ai-message">
+            <div class="flex gap-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan to-accent-coral flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="message-ai">
+                    <p class="text-gray-200 mb-3">Hello! I'm your AI assistant for the job board. I can help you:</p>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check text-accent-cyan mt-1 text-xs"></i>
+                            <span>Search for jobs by title, company, or industry</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check text-accent-cyan mt-1 text-xs"></i>
+                            <span>View detailed job information and statistics</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check text-accent-cyan mt-1 text-xs"></i>
+                            <span>Create new job listings with natural language</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check text-accent-cyan mt-1 text-xs"></i>
+                            <span>Analyze hiring trends and application metrics</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="p-4 border-t border-white/5 bg-black/20">
+        <form id="chat-form" onsubmit="sendMessage(event)" class="flex gap-3">
+            <div class="flex-1 relative">
+                <input
+                    type="text"
+                    id="chat-input"
+                    class="w-full px-4 py-3 pl-4 pr-12 rounded-xl bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:border-accent-cyan/50 focus:ring-1 focus:ring-accent-cyan/20 transition-all"
+                    placeholder="Ask me about jobs, statistics, or say 'Create a job for...'"
+                    autocomplete="off"
+                    {% if ai_status.status != 'ok' %}disabled{% endif %}
+                >
+                <button
+                    type="button"
+                    id="mic-btn"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-accent-cyan transition-colors"
+                >
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
+            <button
+                type="submit"
+                class="btn-primary px-5 rounded-xl text-white font-medium flex items-center gap-2 {% if ai_status.status != 'ok' %}opacity-50 cursor-not-allowed{% endif %}"
+                id="send-btn"
+                {% if ai_status.status != 'ok' %}disabled{% endif %}
+            >
+                <i class="fas fa-paper-plane text-xs"></i>
+                <span class="hidden sm:inline">Send</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Example Prompts -->
+<div class="mt-6">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+            <i class="fas fa-lightbulb text-yellow-400 text-xs"></i>
+        </div>
+        <h3 class="text-white font-semibold">Try These</h3>
+    </div>
+    <div class="flex flex-wrap gap-3">
+        <button onclick="fillPrompt('Show me all remote jobs')" class="glass-light hover:border-accent-cyan/30 px-4 py-2 rounded-lg text-gray-300 text-sm transition-all hover:text-white">
+            "Show me all remote jobs"
+        </button>
+        <button onclick="fillPrompt('How many jobs are in the Technology industry?')" class="glass-light hover:border-accent-cyan/30 px-4 py-2 rounded-lg text-gray-300 text-sm transition-all hover:text-white">
+            "How many Technology jobs?"
+        </button>
+        <button onclick="fillPrompt('What are the job statistics?')" class="glass-light hover:border-accent-cyan/30 px-4 py-2 rounded-lg text-gray-300 text-sm transition-all hover:text-white">
+            "What are the job statistics?"
+        </button>
+        <button onclick="fillPrompt('Create a job for a Senior Python Developer at TechCorp')" class="glass-light hover:border-accent-coral/30 px-4 py-2 rounded-lg text-gray-300 text-sm transition-all hover:text-white">
+            "Create a Python Developer job"
+        </button>
+        <button onclick="fillPrompt('Search for jobs in Mining')" class="glass-light hover:border-accent-cyan/30 px-4 py-2 rounded-lg text-gray-300 text-sm transition-all hover:text-white">
+            "Search for Mining jobs"
+        </button>
+    </div>
+</div>
+
+<style>
+.message {
+    animation: slideUp 0.3s ease-out;
+}
+
+.message:last-child {
+    margin-bottom: 0;
+}
+
+.user-message .message-content {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 18px 18px 4px 18px;
+    margin-left: auto;
+    max-width: 75%;
+}
+
+.ai-message .message-content {
+    background: rgba(30, 30, 30, 0.8);
+    border: 1px solid var(--glass-border);
+    padding: 12px 18px;
+    border-radius: 18px 18px 18px 4px;
+    max-width: 75%;
+}
+
+.tool-call {
+    background: rgba(6, 182, 212, 0.1);
+    border-left: 3px solid #06b6d4;
+    padding: 10px 14px;
+    margin: 8px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.8rem;
+}
+
+.tool-call .tool-name {
+    font-weight: 600;
+    color: #06b6d4;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.tool-call .tool-args {
+    color: #9ca3af;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    margin-top: 4px;
+}
+
+.typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    padding: 8px 0;
+}
+
+.typing-indicator span {
+    width: 6px;
+    height: 6px;
+    background: #06b6d4;
+    border-radius: 50%;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-8px); }
+}
+
+#chat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+</style>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+const sessionId = 'session_' + Math.random().toString(36).substring(2, 15);
+
+function fillPrompt(text) {
+    document.getElementById('chat-input').value = text;
+    document.getElementById('chat-input').focus();
+}
+
+function appendMessage(role, content, toolCalls = null) {
+    const container = document.getElementById('chat-messages');
+    const isUser = role === 'user';
+
+    let html = `
+        <div class="message ${isUser ? 'user-message' : 'ai-message'}">
+            <div class="flex gap-4 ${isUser ? 'flex-row-reverse' : ''}">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-gradient-to-br from-accent-coral to-orange-600' : 'bg-gradient-to-br from-accent-cyan to-accent-coral'}">
+                    <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-white text-sm"></i>
+                </div>
+                <div class="${isUser ? 'text-right' : ''}">
+                    <div class="message-content">
+                        ${formatContent(content)}
+                    </div>
+    `;
+
+    if (toolCalls && toolCalls.length > 0) {
+        toolCalls.forEach(tool => {
+            html += `
+                <div class="tool-call">
+                    <div class="tool-name"><i class="fas fa-wrench mr-2"></i> ${escapeHtml(tool.tool)}</div>
+                    ${tool.error ?
+                        `<div style="color: #ef4444;"><i class="fas fa-exclamation-circle mr-1"></i> Error: ${escapeHtml(tool.error)}</div>` :
+                        `<div class="tool-args"><i class="fas fa-check-circle mr-1"></i> Success</div>`
+                    }
+                </div>
+            `;
+        });
+    }
+
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', html);
+    container.scrollTop = container.scrollHeight;
+}
+
+function formatContent(content) {
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false,
+            sanitize: false
+        });
+        return marked.parse(content);
+    }
+    return escapeHtml(content)
+        .replace(/\n/g, '<br>')
+        .replace(/`([^`]+)`/g, '<code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: JetBrains Mono, monospace;">$1</code>');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showLoading() {
+    const container = document.getElementById('chat-messages');
+    const loadingId = 'loading-' + Date.now();
+
+    container.insertAdjacentHTML('beforeend', `
+        <div id="${loadingId}" class="message ai-message">
+            <div class="flex gap-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan to-accent-coral flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="message-ai flex items-center gap-2">
+                    <span class="text-gray-300">Thinking</span>
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+
+    container.scrollTop = container.scrollHeight;
+    return loadingId;
+}
+
+function removeLoading(loadingId) {
+    const loading = document.getElementById(loadingId);
+    if (loading) loading.remove();
+}
+
+async function sendMessage(event) {
+    event.preventDefault();
+
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    input.value = '';
+    appendMessage('user', message);
+    const loadingId = showLoading();
+
+    try {
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `message=${encodeURIComponent(message)}&session_id=${encodeURIComponent(sessionId)}`
+        });
+
+        const data = await response.json();
+        removeLoading(loadingId);
+
+        if (data.type === 'error') {
+            appendMessage('ai', 'Sorry, I encountered an error: ' + data.content, data.tool_calls);
+        } else {
+            appendMessage('ai', data.content, data.tool_calls);
+        }
+    } catch (error) {
+        removeLoading(loadingId);
+        appendMessage('ai', 'Sorry, I couldn\'t process your request. Please make sure Ollama is running.');
+    }
+}
+
+async function clearConversation() {
+    try {
+        await fetch('/api/ai/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `session_id=${encodeURIComponent(sessionId)}`
+        });
+
+        const container = document.getElementById('chat-messages');
+        const messages = container.querySelectorAll('.message');
+        messages.forEach((msg, index) => {
+            if (index > 0) msg.remove();
+        });
+    } catch (error) {
+        console.error('Failed to clear conversation:', error);
+    }
+}
+
+async function checkHealth() {
+    try {
+        const response = await fetch('/api/ai/health');
+        const data = await response.json();
+
+        const indicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+
+        if (data.status === 'ok') {
+            indicator.className = 'w-14 h-14 rounded-2xl flex items-center justify-center bg-accent-cyan/10 border border-accent-cyan/30';
+            indicator.innerHTML = '<i class="fas fa-robot text-accent-cyan text-xl"></i>';
+            statusText.innerHTML = 'Connected to Ollama at <span class="font-mono text-accent-cyan">{{ ollama_host }}</span>';
+            document.getElementById('chat-input').disabled = false;
+            document.getElementById('send-btn').disabled = false;
+        } else {
+            indicator.className = 'w-14 h-14 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/30';
+            indicator.innerHTML = '<i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>';
+            statusText.innerHTML = '<span class="text-red-400">Ollama not available</span>. Make sure it\'s running.';
+        }
+    } catch (error) {
+        console.error('Health check failed:', error);
+    }
+}
+
+checkHealth();
+</script>
+{% endblock %}
+{% endblock %}

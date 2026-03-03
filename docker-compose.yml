@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/job_board.db
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+      - ENABLE_SEED_DATA=true
+      - DEBUG=false
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # Optional: PostgreSQL service
+  # Uncomment to use PostgreSQL instead of SQLite
+  # db:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_DB=job_board
+  #     - POSTGRES_USER=jobboard
+  #     - POSTGRES_PASSWORD=changeme
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   postgres_data:
