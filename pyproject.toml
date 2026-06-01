@@ -5,7 +5,7 @@ description = "Extensible Job Board MCP Server with Web Dashboard"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=2.0.0",
+    "fastmcp>=3.0.0",
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "sqlalchemy>=2.0.0",
